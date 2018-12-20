@@ -9,6 +9,34 @@
 </div> <!-- .container -->
 
 <div class="main container">
+  <div class="row">
+    <div class="col-lg-8 col-lg-offset-2 col-sm-12">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h5 class="panel-title">
+            <a href="#twitter-feed" data-toggle="collapse">
+              <span class="fa fa-twitter"></span>
+              News from @swdestinydb
+              <span class="fa fa-caret-down"></span>
+            </a>
+          </h5>
+        </div>
+        <div class="panel-collapse collapse" id="twitter-feed">
+          <div class="panel-body">
+            <a class="twitter-timeline" href="https://twitter.com/swdestinydb"
+              data-chrome="noborders noheader nofooter"
+              data-height="200">
+              News from @swdestinydb
+            </a>
+
+            <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+          </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<div class="main container">
     <div class="row">
     {% for byFaction in decklists_by_faction %}
       {% for data in byFaction %}
@@ -18,9 +46,10 @@
                 <div class="media-left">
                     <img src="{{ asset('/bundles/app/images/affiliations/' ~ data.affiliation.code ~ '.png') }}" height="30" width="30"/>
                 </div>
-                <div class="media-body">
+                <div class="media-body" style="padding-bottom: 2px;">
                     <h4 class="media-heading" style="white-space:nowrap"><a href="{{ path('decklist_detail',{decklist_id:data.decklist.id,decklist_name:data.decklist.nameCanonical}) }}">{{ data.decklist.name }}</a></h4>
                     <div class="small">
+                      <span class="deck-format">{{ data.decklist.format.name }}</span>
                       {% set username %}
                         <span class="username">{{ macros.username_colorless(data.decklist.user) }}</span>
                       {% endset %}

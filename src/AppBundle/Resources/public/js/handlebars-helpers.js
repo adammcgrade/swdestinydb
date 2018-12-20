@@ -8,7 +8,7 @@
     });
 
     Handlebars.registerHelper('int_or_x', function(value, opt) {
-        if(!_.isNumber(value))
+        if(_.isNaN(_.toNumber(value)))
             return 'X';
         else
             return value;
@@ -39,7 +39,11 @@
             'SoR': '<span class="icon-set-SoR"></span>',
             'EaW': '<span class="icon-set-EaW"></span>',
             'TPG': '<span class="icon-set-TPG"></span>',
-            'LEG': '<span class="icon-set-TPG"></span>'
+            'LEG': '<span class="icon-set-LEG"></span>',
+            'RIV': '<span class="icon-set-RIV"></span>',
+            'WotF': '<span class="icon-set-WotF"></span>',
+            'AtG': '<span class="icon-set-AtG"></span>',
+            'CON': '<span class="icon-set-CON"></span>'
         };
         
         _.forEach(icons, function(span, key) {
@@ -54,8 +58,8 @@
     });
 
     Handlebars.registerHelper('dieside', function(side) {
-    	var codes = {'-': 'blank', 'MD': 'melee', 'RD': 'ranged', 'ID': 'indirect', 'Dr': 'disrupt', 'Dc': 'discard', 'F': 'focus', 'R': 'resource', 'Sp': 'special', 'Sh': 'shield', 'X': ''};
-    	var elems = /^([-+]?)(\d*?)([-A-Z][a-zA-Z]?)(\d*?)$/.exec(side);
+    	var codes = {'-': 'blank', 'MD': 'melee', 'RD': 'ranged', 'ID': 'indirect', 'Dr': 'disrupt', 'Dc': 'discard', 'F': 'focus', 'R': 'resource', 'Sp': 'special', 'Sh': 'shield', '*': ''};
+    	var elems = /^([-+]?)(\d+|X)?([-*A-VYZ][a-zA-Z]?)(\d*?)$/.exec(side);
         var side = {
             code: elems[3],
             icon: codes[elems[3]],
@@ -71,6 +75,69 @@
             return app.data.cards.findById(code);
         }
         return {};
+    });
+
+    Handlebars.registerHelper('format', function(code) {
+        if(app.data && app.data.formats) {
+            return app.data.formats.findById(code);
+        }
+        return {};
+    });
+
+    Handlebars.registerHelper('legal', function(card_code, format_code) {
+        if(arguments < 2)
+            throw new Error("Handlerbars Helper 'legal' needs 2 parameters");
+
+        if(app.data && app.data.formats && app.data.cards) {
+            var card = app.data.cards.findById(card_code);
+            var format = app.data.formats.findById(format_code);
+
+            //if card's set included in legal sets of the format
+            if(_.includes(format.data.sets, card.set_code))
+                return true;
+
+            //if not, but the card is a reprint of a legal card...
+            if(card.reprint_of) {
+                var reprint = app.data.cards.findById(card.reprint_of);
+                if(_.includes(format.data.sets, reprint.set_code))
+                    return true;
+            }
+
+            //or the card has a reprint that is legal...
+            if(card.reprints) {
+                var legal = _.some(card.reprints, function(reprint_code) {
+                    var reprint = app.data.cards.findById(reprint_code);
+                    return _.includes(format.data.sets, reprint.set_code);
+                });
+                if(legal)
+                    return true;
+            }
+
+            return false;
+        }
+        
+        return false;
+    });
+
+    Handlebars.registerHelper('balance', function(card_code, format_code) {
+        if(arguments < 2)
+            throw new Error("Handlerbars Helper 'legal' needs 2 parameters");
+
+        if(app.data && app.data.formats && app.data.cards) {
+            var card = app.data.cards.findById(card_code);
+            var format = app.data.formats.findById(format_code);
+
+            if(card.reprint_of) {
+                card = app.data.cards.findById(card.reprint_of);
+            }
+
+            if(_.has(format.data.balance, card.code))
+                return new Handlebars.SafeString("<b>"+format.data.balance[card.code]+"</b>");
+            else
+                return new Handlebars.SafeString(card.points);
+        }
+
+        return new Handlebars.SafeString("");
     });
 
     Handlebars.registerHelper('routing', function(path, options) {

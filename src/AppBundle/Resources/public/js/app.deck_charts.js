@@ -41,13 +41,15 @@
         var categories = {};
 
         categories[Translator.trans('icon.upgrade')] = '<span class="icon icon-upgrade"></span>';
+        categories[Translator.trans('icon.downgrade')] = '<span class="icon icon-downgrade"></span>';
         categories[Translator.trans('icon.support')] = '<span class="icon icon-support"></span>';
         categories[Translator.trans('icon.event')] = '<span class="icon icon-event"></span>';
 
         var iData = {
             'upgrade': { i: 0, name: Translator.trans('icon.upgrade') },
-            'support': { i: 1, name: Translator.trans('icon.support') },
-            'event': { i: 2, name: Translator.trans('icon.event') }
+            'downgrade': { i: 1, name: Translator.trans('icon.downgrade') },
+            'support': { i: 2, name: Translator.trans('icon.support') },
+            'event': { i: 3, name: Translator.trans('icon.event') }
         };
 
         var validTypes = {};
@@ -64,7 +66,7 @@
                 serie = {
                     name: card.faction_name,
                     color: faction_colors[card.faction_code],
-                    data: [0, 0, 0],
+                    data: [0, 0, 0, 0],
                     type: "column",
                     showInLegend: false
                 };
@@ -250,10 +252,10 @@
         return colors;
     })();
     deck_charts.chart_dice = function chart_dice() {
-        var symbols = {MD: 'melee', RD: 'ranged', F: 'focus', Dr: 'disrupt', Dc: 'discard', Sh: 'shield', R: 'resource', Sp: 'special', '-': 'blank'};
+        var symbols = {MD: 'melee', RD: 'ranged', ID: 'indirect', F: 'focus', Dr: 'disrupt', Dc: 'discard', Sh: 'shield', R: 'resource', Sp: 'special', '-': 'blank'};
 
         var categories = [];
-        ["MD", "RD", "F", "Dr", "Sh", "Dc", "R", "Sp", "-"].forEach(function(symbol) {
+        ["MD", "RD", "ID", "F", "Dr", "Sh", "Dc", "R", "Sp", "-"].forEach(function(symbol) {
             categories.push({
                 name: Translator.trans('icon.'+symbols[symbol]),
                 code: symbol,

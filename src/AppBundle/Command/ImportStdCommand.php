@@ -139,6 +139,38 @@ class ImportStdCommand extends ContainerAwareCommand
 		$this->em->flush();
 		$this->loadCollection('SideType');
 		$output->writeln("Done.");
+
+		// cycles
+
+		$output->writeln("Importing Cycles...");
+		$setsFileInfo = $this->getFileInfo($path, 'cycles.json');
+		$imported = $this->importCyclesJsonFile($setsFileInfo);
+		$question = new ConfirmationQuestion("Do you confirm? (Y/n) ", true);
+		if(count($imported)) {
+			$question = new ConfirmationQuestion("Do you confirm? (Y/n) ", true);
+			if(!$helper->ask($input, $output, $question)) {
+				die();
+			}
+		}
+		$this->em->flush();
+		$this->loadCollection('Cycle');
+		$output->writeln("Done.");
+
+		// formats
+
+		$output->writeln("Importing Formats...");
+		$setsFileInfo = $this->getFileInfo($path, 'formats.json');
+		$imported = $this->importFormatsJsonFile($setsFileInfo);
+		$question = new ConfirmationQuestion("Do you confirm? (Y/n) ", true);
+		if(count($imported)) {
+			$question = new ConfirmationQuestion("Do you confirm? (Y/n) ", true);
+			if(!$helper->ask($input, $output, $question)) {
+				die();
+			}
+		}
+		$this->em->flush();
+		$this->loadCollection('Format');
+		$output->writeln("Done.");
 		
 		// second, sets
 
@@ -310,6 +342,47 @@ class ImportStdCommand extends ContainerAwareCommand
 	
 		return $result;
 	}
+
+	protected function importCyclesJsonFile(\SplFileInfo $fileinfo)
+	{
+		$result = [];
+	
+		$cyclesData = $this->getDataFromFile($fileinfo);
+		foreach($cyclesData as $cycleData) {
+			$cycle = $this->getEntityFromData('AppBundle\Entity\Cycle', $cycleData, [
+					'code', 
+					'name', 
+					'position', 
+					'date_release'
+			], [], []);
+			if($cycle) {
+				$result[] = $cycle;
+				$this->em->persist($cycle);
+			}
+		}
+		
+		return $result;
+	}
+
+	protected function importFormatsJsonFile(\SplFileInfo $fileinfo)
+	{
+		$result = [];
+	
+		$formatsData = $this->getDataFromFile($fileinfo);
+		foreach($formatsData as $formatData) {
+			$format = $this->getEntityFromData('AppBundle\Entity\Format', $formatData, [
+					'code', 
+					'name',
+					'data'
+			], [], []);
+			if($format) {
+				$result[] = $format;
+				$this->em->persist($format);
+			}
+		}
+		
+		return $result;
+	}
 	
 	protected function importSetsJsonFile(\SplFileInfo $fileinfo)
 	{
@@ -325,7 +398,9 @@ class ImportStdCommand extends ContainerAwareCommand
 					'cgdb_id_start',
 					'cgdb_id_end',
 					'date_release'
-			], [], []);
+			], [
+				'cycle_code'
+			], []);
 			if($set) {
 				$result[] = $set;
 				$this->em->persist($set);
@@ -359,8 +434,7 @@ class ImportStdCommand extends ContainerAwareCommand
 					'faction_code',
 					'set_code',
 					'rarity_code',
-					'type_code',
-					'subtype_code'
+					'type_code'
 			], [
 					'illustrator',
 					'flavor',
@@ -403,13 +477,13 @@ class ImportStdCommand extends ContainerAwareCommand
 	{
 		$metadata = $this->em->getClassMetadata($entityName);
 		$type = $metadata->fieldMappings[$fieldName]['type'];
-		
+
 		// new value, by default what json gave us is the correct typed value
-		$newTypedValue = $newJsonValue;
-		
+		$newStringValue = $newTypedValue = $newJsonValue;
+
 		// current value, by default the json, serialized value is the same as what's in the entity
 		$getter = 'get'.ucfirst($fieldName);
-		$currentJsonValue = $currentTypedValue = $entity->$getter();
+		$currentJsonValue = $currentTypedValue = $currentStringValue = $entity->$getter();
 
 		// if the field is a data, the default assumptions above are wrong
 		if(in_array($type, ['date', 'datetime'])) {
@@ -419,19 +493,29 @@ class ImportStdCommand extends ContainerAwareCommand
 			if($currentTypedValue !== null) {
 				switch($type) {
 					case 'date': {
-						$currentJsonValue = $currentTypedValue->format('Y-m-d');
+						$currentJsonValue = $currentStringValue = $currentTypedValue->format('Y-m-d');
 						break;
 					}
 					case 'datetime': {
-						$currentJsonValue = $currentTypedValue->format('Y-m-d H:i:s');
+						$currentJsonValue = $currentStringValue = $currentTypedValue->format('Y-m-d H:i:s');
 					}
 				}
 			}
 		}
+
+		if(in_array($type, ['json', 'json_array'])) {
+			if($newJsonValue !== NULL) {
+				$newStringValue = json_encode($newJsonValue);
+			}
+			if($currentJsonValue !== NULL) {
+				$currentStringValue = json_encode($currentJsonValue);
+			}
+		}
 		
 		$different = ($currentJsonValue !== $newJsonValue);
+
 		if($different) {
-			$this->output->writeln("Changing the <info>$fieldName</info> of <info>".$entity->toString()."</info> ($currentJsonValue => $newJsonValue)");
+			$this->output->writeln("Changing the <info>$fieldName</info> of <info>".$entity->toString()."</info> ($currentStringValue => $newStringValue)");
 			$setter = 'set'.ucfirst($fieldName);
 			$entity->$setter($newTypedValue);
 		}
@@ -449,7 +533,7 @@ class ImportStdCommand extends ContainerAwareCommand
 			}
 		}
 		$value = $data[$key];
-		
+
 		if(!key_exists($key, $metadata->fieldNames)) {
 			throw new \Exception("Missing column [$key] in entity ".$entityName);
 		}
@@ -509,6 +593,7 @@ class ImportStdCommand extends ContainerAwareCommand
 			$functionName = 'import' . $entity->getType()->getName() . 'Data';
 			$this->$functionName($entity, $data);
 
+			$this->importCardSubtypes($entity, $data);
 			$this->importCardDieSides($entity, $data);
 
 			$this->setReprintOf($entity, $data);
@@ -520,6 +605,28 @@ class ImportStdCommand extends ContainerAwareCommand
 		}
 	
 		if($entity->serialize() !== $orig) return $entity;
+	}
+
+	protected function importCardSubtypes(Card $card, $data)
+	{
+		if(!empty($data['subtypes']))
+		{
+			$prev = $card->serialize()['subtypes'];
+			$current = $data['subtypes'];
+			if(count(array_diff(array_merge($prev, $current), array_intersect($prev, $current))) !== 0)
+			{
+				$card->getSubtypes()->clear();
+				foreach($current as $subtype_code)
+				{
+					if(!key_exists($subtype_code, $this->collections['Subtype'])) {
+						throw new \Exception("Invalid code [$subtype_code] for key [subtype] in ".json_encode($data['subtypes']));
+					}
+					$subtype = $this->collections['Subtype'][$subtype_code];
+					$card->addSubtype($subtype);
+				}
+				$this->output->writeln("Changing the <info>subtypes</info> of <info>".$card->toString()."</info> (".implode(", ", $prev)." => ".implode(", ", $current).")");
+			}
+		}
 	}
 
 	protected function importCardDieSides(Card $card, $data)
@@ -548,18 +655,23 @@ class ImportStdCommand extends ContainerAwareCommand
 				
 				$orig = $side->toString();
 
-				preg_match('/^([-+]?)(\d*?)([-A-Z][a-zA-Z]?)(\d*?)$/', $sideData, $result);
+				preg_match('/^([-+]?)([0-9]*|X)?(RD|MD|ID|F|Dc|Dr|Sh|R|Sp|-|\*)(\d*?)$/', $sideData, $result);
 				list($all, $modifier, $value, $type, $cost) = $result;
 
-				if($type == 'X')
-					$side->setType(null);
+				if($type == '*')
+					$side->setType(NULL);
 				else if(!key_exists($type, $this->collections['SideType']))
 					throw new \Exception("There is no side type with code [$type]");
 				else
 					$side->setType($this->collections['SideType'][$type]);
 				
 				$side->setModifier($modifier=='+' ? 1 : 0);
-				$side->setValue((int) $value);
+
+				if($value=='X')
+					$side->setValue(NULL);
+				else
+					$side->setValue((int) $value);
+
 				$side->setCost((int) $cost);
 
 				if($orig !== $side->toString())
@@ -671,6 +783,17 @@ class ImportStdCommand extends ContainerAwareCommand
 	{
 		$mandatoryKeys = [
 				'points'
+		];
+
+		foreach($mandatoryKeys as $key) {
+			$this->copyKeyToEntity($card, 'AppBundle\Entity\Card', $data, $key, TRUE);
+		}
+	}
+
+	protected function importDowngradeData(Card $card, $data)
+	{
+		$mandatoryKeys = [
+				'cost'
 		];
 
 		foreach($mandatoryKeys as $key) {

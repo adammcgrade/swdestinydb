@@ -25,7 +25,7 @@
 				"scaleY": 1,
 				"scaleZ": 1
 			},
-			"Nickname": "{{ deck.name|raw|replace({"'":""}) }}",
+			"Nickname": "{{ deck.name|replace({"\"":"\\\""})|raw }}",
 			"Description": "Exported from SWDestinyDB.com",
 			"ColorDiffuse": {
 				"r": 0.129,
@@ -43,8 +43,8 @@
 			"LuaScript": "",
 			"LuaScriptState": "",
 			"ContainedObjects": [
-				{# BattleField #}
-				{% set battlefield = deck.slots_by_type.battlefield.0.card %}
+        {# BattleField #}
+				{% for battlefield in deck.slots_by_type.battlefield %}
 				{
 					"Name": "Card",
 					"Transform": {
@@ -58,8 +58,8 @@
 						"scaleY": 1,
 						"scaleZ": 1.42055011
 					},
-					"Nickname": "{{ battlefield.name|raw|replace({"'":""}) }}",
-					"Description": "",
+					"Nickname": "{{ battlefield.card.name|replace({"\"":"\\\""})|raw }}",
+					"Description": "{{battlefield.card.set.code}} {{battlefield.card.position}}",
 					"ColorDiffuse": {
 						"r": 0.713235259,
 						"g": 0.713235259,
@@ -71,12 +71,59 @@
 					"Autoraise": true,
 					"Sticky": true,
 					"Tooltip": true,
-					"CardID": {{ battlefield.ttscardid }},
+					"CardID": {{ battlefield.card.ttscardid }},
 					"SidewaysCard": true,
 					"CustomDeck": {
-						{# All Battlefields use CustomDeck 18 #}
-						"18": {
-							"FaceURL": "http://drive.google.com/uc?id=0B0v-LHuAfe7LUHgyNXVudlY4OVE",
+                  {# All Battlefields use CustomDeck 18 #}
+                  "18": {
+                     "FaceURL": "http://drive.google.com/uc?id=0B0v-LHuAfe7LUHgyNXVudlY4OVE",
+                     "BackURL": "{{backUrl}}",
+                     "NumWidth": 10,
+                     "NumHeight": 7,
+                     "BackIsHidden": true,
+                     "UniqueBack": false
+                  }
+					},
+					"LuaScript": "",
+					"LuaScriptState": "",
+					"GUID": "{{ deck.guidArray[guidCount] }}"
+					{% set guidCount = guidCount + 1 %}
+				},
+				{% endfor %}
+				{# Plot #}
+				{% for plot in deck.slots_by_type.plot %}
+				{
+					"Name": "Card",
+					"Transform": {
+						"posX": {{ random(999) /1000 }},
+						"posY": {{ random(999) /1000 }},
+						"posZ": {{ random(999) /1000 }},
+						"rotX": {{ random(999) /1000 }},
+						"rotY": {{ random(999) /1000 }},
+						"rotZ": {{ random(999) /1000 }},
+						"scaleX": 1.42055011,
+						"scaleY": 1,
+						"scaleZ": 1.42055011
+					},
+					"Nickname": "{{ plot.card.name|replace({"\"":"\\\""})|raw }}",
+					"Description": "{{plot.card.set.code}} {{plot.card.position}}",
+					"ColorDiffuse": {
+						"r": 0.713235259,
+						"g": 0.713235259,
+						"b": 0.713235259
+					},
+					"Locked": false,
+					"Grid": true,
+					"Snap": true,
+					"Autoraise": true,
+					"Sticky": true,
+					"Tooltip": true,
+					"CardID": {{ plot.card.ttscardid }},
+					"SidewaysCard": false,
+					"CustomDeck": {
+						{# All Plots use CustomDeck 473 #}
+						"473": {
+							"FaceURL": "http://cloud-3.steamusercontent.com/ugc/910157197472506127/6038134EFC06C9B338C589EA58F3638B38B47AAF/",
 							"BackURL": "{{backUrl}}",
 							"NumWidth": 10,
 							"NumHeight": 7,
@@ -89,6 +136,7 @@
 					"GUID": "{{ deck.guidArray[guidCount] }}"
 					{% set guidCount = guidCount + 1 %}
 				},
+				{% endfor %}
 				{# Characters #}
 				{% for slot in deck.slots_by_type.character %}
 				{% set slotLabel = slot.card.name~(slot.card.subtitle is defined and slot.card.subtitle != "" ? ", "~slot.card.subtitle : "")%}
@@ -106,8 +154,8 @@
 			      "scaleY": 1.0,
 			      "scaleZ": 1.42055011
 			    },
-			    "Nickname": "{{ slotLabel|raw|replace({"'":""}) }}",
-			    "Description": "{% if slot.dice == 2 and slot.card.deckLimit == 1 %}elite{% endif %}",
+			    "Nickname": "{{ slotLabel|replace({"\"":"\\\""})|raw }}",
+			    "Description": "{% if slot.dice == 2 and slot.card.deckLimit == 1 %}elite {% endif %}{{slot.card.set.code}} {{slot.card.position}}",
 			    "ColorDiffuse": {
 			      "r": 0.713235259,
 			      "g": 0.713235259,
@@ -168,6 +216,7 @@
 					"SidewaysCard": false,
 					"DeckIDs": [
 {% set allSlots = deck.slots_by_type.upgrade %}
+{% set allSlots = allSlots|merge(deck.slots_by_type.downgrade) %}
 {% set allSlots = allSlots|merge(deck.slots_by_type.support) %}
 {% set allSlots = allSlots|merge(deck.slots_by_type.event) %}
 {% for slot in allSlots %}
@@ -279,8 +328,8 @@
 			            "scaleY": 1.0,
 			            "scaleZ": 1.42055011
 			          },
-			          "Nickname": "{{ slotLabel|raw|replace({"'":""}) }}",
-			          "Description": "",
+			          "Nickname": "{{ slotLabel|replace({"\"":"\\\""})|raw }}",
+			          "Description": "{{slot.card.set.code}} {{slot.card.position}}",
 			          "ColorDiffuse": {
 			            "r": 0.713235259,
 			            "g": 0.713235259,
@@ -405,3 +454,4 @@
 	],
 	"TabStates": {}
 }
+

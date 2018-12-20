@@ -4,6 +4,7 @@ var DisplayColumnsTpl = '',
 	SortKey = 'type_code',
 	SortOrder = 1,
 	CardDivs = [[],[],[]],
+	Format = null,
 	Config = null;
 
 /**
@@ -63,9 +64,11 @@ ui.on_collection_loaded = function on_collection_loaded() {
  */
 ui.set_max_qty = function set_max_qty() {
 	app.data.cards.find().forEach(function(record) {
-		var max_value = Math.min(2, record.deck_limit);
+		var max_value = record.deck_limit || 2;
 		if(record.type_code=='character' && !record.is_unique) {
 			max_value = Math.min(parseInt(30 / parseInt(record.points, 10)));
+		} else if (_.includes(['upgrade', 'downgrade', 'support', 'event'], record.type_code) && app.deck.is_included('08143')) {
+			max_value++;
 		}
 
 		var max_qty = {
@@ -106,6 +109,18 @@ function get_examples(codes, key) {
 		var query={}; query[key] = code;
 		return {code: code, example: app.data.cards.find(query)[0] };
 	});	
+}
+
+/**
+ * builds the format selector
+ * @memberOf ui
+ */
+ui.build_format_selector = function build_format_selector() {
+	$('#format-selector').empty();
+	var tpl = Handlebars.templates['ui_deckedit-formats'];
+	$('#format-selector').html(tpl({
+		formats: app.data.formats.find({name: {'$exists': true } }, {})
+	})).button().find('label').tooltip({container: 'body', html: true});
 }
 
 /**
@@ -150,7 +165,7 @@ ui.build_type_selector = function build_type_selector() {
 	var tpl = Handlebars.templates['ui_deckedit-types'];
 
 	$('[data-filter=type_code]').html(
-		tpl({codes: get_examples(['battlefield','plot','character','upgrade','support', 'event'], 'type_code')})
+		tpl({codes: get_examples(['battlefield','plot','character','upgrade','downgrade','support', 'event'], 'type_code')})
 	).button().find('label').tooltip({container: 'body'});
 }
 
@@ -191,6 +206,7 @@ ui.build_set_selector = function build_set_selector() {
  * @memberOf ui
  */
 ui.init_selectors = function init_selectors() {
+	$('#format-selector').find('input[value='+app.deck.get_format_code()+']').prop('checked', true).parent().addClass('active');
 	$('[data-filter=affiliation_code]').find('input[name=neutral]').prop("checked", true).parent().addClass('active');
 	$('[data-filter=affiliation_code]').find('input[name='+app.deck.get_affiliation_code()+']').prop("checked", true).parent().addClass('active');
 	$('[data-filter=faction_code]').find('input').prop("checked", true).parent().addClass('active');
@@ -423,8 +439,13 @@ ui.on_quantity_change = function on_quantity_change(card_code, quantity) {
 	var update_all = app.deck.set_card_copies(card_code, quantity);
 	ui.refresh_deck();
 
+	//if "Double Down" (Across the Galaxy #143) was selected or unselected...
+	if(card_code=='08143') {
+		ui.set_max_qty(); //...refresh max quantity
+	}
+
 	if(update_all) {
-		ui.refresh_list();
+		ui.refresh_list(_.includes(['08143'], card_code));
 	}
 	else {
 		ui.refresh_row(card_code);
@@ -450,6 +471,12 @@ ui.on_2nd_die_change = function on_2nd_die_change(card_code, active) {
  * @memberOf ui
  */
 ui.setup_event_handlers = function setup_event_handlers() {
+
+	$('#format-selector').on('change', 'input', function(event) {
+		app.deck.set_format_code($(this).val());
+		ui.refresh_deck();
+		ui.refresh_list(true);
+	});
 
 	$('[data-filter]').on({
 		change : ui.refresh_list,
@@ -562,7 +589,7 @@ ui.reset_list = function reset_list() {
  * don't fire unless 250ms has passed since last invocation
  * @memberOf ui
  */
-ui.refresh_list = _.debounce(function refresh_list() {
+ui.refresh_list = _.debounce(function refresh_list(refresh) {
 	$('#collection-table').empty();
 	$('#collection-grid').empty();
 
@@ -588,7 +615,7 @@ ui.refresh_list = _.debounce(function refresh_list() {
 		if (Config['show-only-owned'] && card.maxqty.cards==0) return;
 
 		var row = divs[card.code];
-		if(!row) row = divs[card.code] = ui.build_row(card);
+		if(!row || refresh) row = divs[card.code] = ui.build_row(card);
 
 		row.data("code", card.code).addClass('card-container');
 
@@ -730,6 +757,7 @@ ui.on_data_loaded = function on_data_loaded() {
  */
 ui.on_all_loaded = function on_all_loaded() {
 	ui.update_list_template();
+	ui.build_format_selector();
 	ui.build_affiliation_selector();
 	ui.build_faction_selector();
 	ui.build_type_selector();

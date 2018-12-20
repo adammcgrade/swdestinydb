@@ -17,6 +17,7 @@ parameters:
         it: Italiano
         pl: Polski
         pt: Português
+        ru: Русский
         zh: Simplified Chinese
     supported_locales:
         - de
@@ -27,6 +28,7 @@ parameters:
         - it
         - pl
         - pt
+        - ru
         - zh
     default_locale: en
 
@@ -66,6 +68,8 @@ twig:
         google_analytics_tracking_code: "%google_analytics_tracking_code%"
         google_adsense_client: "%google_adsense_client%"
         google_adsense_slot: "%google_adsense_slot%"
+        moneytizer_site_id: "%moneytizer_site_id%"
+        moneytizer_ad_types: "%moneytizer_ad_types%"
     form_themes:
         - 'bootstrap_3_layout.html.twig'
 
@@ -139,6 +143,7 @@ jms_i18n_routing:
         it: "it.%website_url%"
         pl: "pl.%website_url%"
         pt: "pt.%website_url%"
+        ru: "ru.%website_url%"
         zh: "zh.%website_url%"
     redirect_to_host: true
 
@@ -206,9 +211,9 @@ happyr_translation:
     locales: %supported_locales%
     projects:
         messages:
-            api_key: D0UKEl28KeZhBRR0jXUSVjNYSIZV_0a9
+            api_key: -GeNAIp8XIzwIZCFZL3ZsP9k5vWBxo4F
         validators:
-            api_key: ZLiyN9p8SRk3gEhXhA-aG0CSfd_wVYzQ
+            api_key: CWow0Q-lOtg1QdZaV5UsrhpKrd2fYz9z
 
 services:
     fos_user.doctrine_registry:

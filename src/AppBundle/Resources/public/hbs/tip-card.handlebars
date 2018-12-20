@@ -15,12 +15,12 @@
 	<span class="card-rarity">{{card.rarity_name}}</span>.
 </div>
 <div class="card-info">
-	<span class="card-type">{{ card.type_name }}{{#if card.subtype_code }} - {{card.subtype_name}}{{/if}}.</span>
+	<span class="card-type">{{ card.type_name }}{{#each card.subtypes}} - {{name}}{{/each}}.</span>
 	<span class="card-props">
 		{{#in card.type_code "character" "plot"}}
 			{{trans "card.info.points"}}: {{card.points}}.
 		{{/in}}
-		{{#in card.type_code "upgrade" "support" "event"}}
+		{{#in card.type_code "upgrade" "downgrade" "support" "event"}}
 			{{trans "card.info.cost"}}: {{int_or_x card.cost}}.
 		{{/in}}
 		{{#compare card.type_code "character"}}
@@ -34,7 +34,7 @@
   {{#with (dieside this)}}
   <div class="card-die-face border-{{@root.card.faction_code}}{{#if icon}} card-die-face-{{icon}}{{/if}}{{#unless cost}} card-die-face-nocost{{/unless}}{{#if modifier}} card-die-face-modifier{{/if}}">
     <div class="card-die-face-content">
-      <span class="card-die-face-value">{{#if modifier}}+{{/if}}{{nonzero_or_x value}}</span>{{#if icon }}<span class="icon-{{icon}}">{{/if}}</span>
+      <span class="card-die-face-value">{{#if modifier}}+{{/if}}{{int_or_x value}}</span>{{#if icon }}<span class="icon-{{icon}}">{{/if}}</span>
     </div>
     {{#if cost}}
     <div class="card-die-face-cost">
@@ -48,6 +48,11 @@
 {{/if}}
 {{#if card.has_errata}}
 	<div class="text-muted"><small>{{trans 'card.with_errata'}}</small></div>
+{{/if}}
+{{#if card.balance}}
+	{{#with (format card.balance)}}
+	<div class="text-muted"><small>{{trans 'card.balance' format=name}}</small></div>
+	{{/with}}
 {{/if}}
 <div class="card-text border-{{card.faction_code}}">{{text card.text}}</div>
 <div class="card-set"><span class="icon-set-{{card.set_code}}"></span> {{card.set_name}} #{{card.position}}.</div>

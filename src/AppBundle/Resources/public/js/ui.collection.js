@@ -166,7 +166,7 @@ ui.build_type_selector = function build_type_selector() {
 	var tpl = Handlebars.templates['ui_collection-types'];
 
 	$('[data-filter=type_code]').html(
-		tpl({codes: get_examples(['battlefield','plot','character','upgrade','support', 'event'], 'type_code')})
+		tpl({codes: get_examples(['battlefield','plot','character','upgrade','downgrade', 'support', 'event'], 'type_code')})
 	).button().find('label').tooltip({container: 'body'});
 }
 
@@ -555,12 +555,12 @@ ui.set_card_collection_status = function set_card_collection_status(card, row) {
 	if(card.owned.cards==0) {
 		row.addClass('collection-card-not-owned');
 	} else if(card.owned.cards==1) {
-		if((card.type_code=='character' && card.is_unique) || card.type_code=='battlefield')
+		if((card.type_code=='character' && card.is_unique) || card.type_code=='battlefield' || card.type_code=='plot')
 			row.addClass('collection-card-playset');
 		else
 			row.addClass('collection-card-not-playset');
 	} else if(card.owned.cards==2) {
-		if((card.type_code=='character' && card.is_unique) || card.type_code=='battlefield')
+		if((card.type_code=='character' && card.is_unique) || card.type_code=='battlefield' || card.type_code=='plot')
 			row.addClass('collection-card-excess');
 		else
 			row.addClass('collection-card-playset');

@@ -5,6 +5,13 @@ AppBundle\Entity\Set:
     gedmo:
         translation:
             locale: locale
+    manyToOne:
+        cycle:
+            targetEntity: Cycle
+            inversedBy: sets
+            joinColumn:
+                name: cycle_id
+                referencedColumnName: id
     oneToMany:
         cards:
             targetEntity: Card

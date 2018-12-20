@@ -88,9 +88,14 @@ class SlotCollectionDecorator implements \AppBundle\Model\SlotCollectionInterfac
 		}
 		return NULL;
 	}
+
+	public function isSlotIncluded($code) {
+		$slot = $this->getSlotByCode($code);
+		return $slot != NULL;
+	}
 	
 	public function getSlotsByType() {
-		$slotsByType = [ 'battlefield' => [], 'character' => [], 'upgrade' => [], 'support' => [], 'event' => [] ];
+		$slotsByType = [ 'battlefield' => [], 'plot' => [], 'character' => [], 'upgrade' => [], 'downgrade' => [], 'support' => [], 'event' => [] ];
 		foreach($this->slots as $slot) {
 			if(array_key_exists($slot->getCard()->getType()->getCode(), $slotsByType)) {
 				$slotsByType[$slot->getCard()->getType()->getCode()][] = $slot;
@@ -102,6 +107,10 @@ class SlotCollectionDecorator implements \AppBundle\Model\SlotCollectionInterfac
 	public function getCountByType() {
 		$countByType = [ 
 			'upgrade' => array(
+				"cards" => 0,
+				"dice" => 0),
+
+			'downgrade' => array(
 				"cards" => 0,
 				"dice" => 0),
 
@@ -135,6 +144,18 @@ class SlotCollectionDecorator implements \AppBundle\Model\SlotCollectionInterfac
 		return $countByFaction;
 	}
 
+	public function getCountByAffiliation() {
+		$countByAffiliation = ['villain' => 0, 'hero' => 0];
+
+		foreach($this->slots as $slot) {
+			$code = $slot->getCard()->getAffiliation()->getCode();
+			if(array_key_exists($code, $countByAffiliation)) {
+				$countByAffiliation[$code] += max($slot->getQuantity(), $slot->getDice());
+			}
+		}
+		return $countByAffiliation;
+	}
+
 	public function getBattlefieldDeck()
 	{
 		$battlefieldDeck = [];
@@ -151,6 +172,7 @@ class SlotCollectionDecorator implements \AppBundle\Model\SlotCollectionInterfac
 		$drawDeck = [];
 		foreach($this->slots as $slot) {
 			if($slot->getCard()->getType()->getCode() === 'upgrade'
+			|| $slot->getCard()->getType()->getCode() === 'downgrade'
 			|| $slot->getCard()->getType()->getCode() === 'support'
 			|| $slot->getCard()->getType()->getCode() === 'event') {
 				$drawDeck[] = $slot;
@@ -250,7 +272,7 @@ class SlotCollectionDecorator implements \AppBundle\Model\SlotCollectionInterfac
 	public function getCopiesAndDeckLimit()
 	{
 		$copiesAndDeckLimit = [];
-		foreach($this->slots as $slot) {
+		foreach($this->getDrawDeck()->getSlots() as $slot) {
 			$cardName = $slot->getCard()->getName();
 			if(!key_exists($cardName, $copiesAndDeckLimit)) {
 				$copiesAndDeckLimit[$cardName] = [

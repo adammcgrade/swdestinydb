@@ -42,6 +42,7 @@ body {
 .card-flavor {
 	font-style: italic;
 	text-align: justify;
+	font-family: 'Abel', sans-serif;
 }
 .card-flavor cite {
 	white-space: nowrap;
@@ -126,6 +127,31 @@ td.die-face {
 .card-reprints-list {
 	list-style-type: none;
 }
+
+.card-balance {
+	h5 {
+		font-weight: bold;
+		text-align: center;
+	}
+
+	th {
+		font-size: 90%;
+	}
+}
+
+.card-legality {
+	@extend .card-balance;
+
+	td.legal {
+		background-color: #b7ecb7;
+	}
+
+	td.no-legal {
+		background-color: #ffd9d9;
+	}
+}
+
+
 
 .fa-exclamation-triangle {
 	&.limited-pool-conflict {
@@ -325,6 +351,22 @@ ol {
 	margin-right: 4px;
 }
 
+.deck-name {
+	display: inline-block;
+	margin-top: 0.5em;
+}
+
+.deck-format {
+	color: #ccc;
+    border: 2px solid #ccc;
+    font-size: 10px;
+    padding: 0.2em 0.5em;
+    font-weight: bold;
+    border-radius: 1em;
+    text-align: center;
+    vertical-align: middle;
+}
+
 /********** NEW DECK **********/
 
 .list-factions li label {
@@ -385,6 +427,7 @@ ol {
 			@each $elem in (
 				(name: character, x: -75px, y: -72px),
 				(name: upgrade, x: -80px, y: -0px),
+				(name: downgrade, x: -90px, y: -240px),
 				(name: event, x: -80px, y: -24px),
 				(name: support, x: -73px, y: -88px),
 				(name: plot, x: -45px, y: -10px)) {
@@ -657,8 +700,9 @@ div.site-slogan {
 
 /************ LIST OF DECKLISTS **************/
 
-.decklist-images {
+td.decklist-images {
 	width: 290px;
+	vertical-align: middle !important;
 
 	.decklist-character-images, .decklist-plot-images {
 		display: inline-block;
@@ -683,6 +727,10 @@ div.site-slogan {
 			margin-right: 7px;
 		}
 	}
+}
+
+.decklist-format {
+	@extend .deck-format;
 }
 
 /************* DECKLIST *********************/

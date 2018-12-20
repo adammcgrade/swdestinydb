@@ -4,6 +4,8 @@ var date_creation,
 	date_update,
 	description_md,
 	id,
+	format_code,
+	format_name,
 	name,
 	tags,
 	affiliation_code,
@@ -55,11 +57,25 @@ deck.init = function init(data) {
 	user_id = data.user_id;
 	
 	if(app.data.isLoaded) {
-		deck.set_slots(data.slots);
+		deck.on_data_loaded(data);
 	} else {
 		console.log("deck.set_slots put on hold until data.app");
-		$(document).on('data.app', function () { deck.set_slots(data.slots); });
+		$(document).on('data.app', function () {
+			deck.on_data_loaded(data);
+		});
 	}
+}
+
+deck.on_data_loaded = function on_data_loaded(data) {
+	//back up points and has_errata from characters
+	app.data.cards.find({type_code: 'character'}).forEach(function(card) {
+		app.data.cards.updateById(card.code, {
+			backedUp: _.pick(card, ['points', 'cp'])
+		});
+	});
+
+	deck.set_format_code(data.format_code);
+	deck.set_slots(data.slots);	
 }
 
 /**
@@ -100,6 +116,57 @@ deck.get_id = function get_id() {
 deck.get_name = function get_name() {
 	return name;
 }
+
+/**
+ * @memberOf deck
+ * @returns string
+ */
+ deck.get_format_code = function get_format_code() {
+ 	return format_code;
+ }
+
+ /**
+ * @memberOf deck
+ * @returns string
+ */
+ deck.get_format_name = function get_format_name() {
+ 	return format_name;
+ }
+
+/**
+ * @memberOf deck
+ */
+ deck.set_format_code = function set_format_code(code) {
+ 	format_code = code;
+ 	var data = deck.get_format_data();
+ 	format_name = data.name;
+
+ 	//restore cards to its state
+ 	app.data.cards.find({
+ 		backedUp: {$exists: true}
+ 	}).forEach(function(card) {
+ 		app.data.cards.updateById(card.code, card.backedUp);
+ 		app.data.cards.updateById(card.code, {$unset: {balance: 1}});
+ 	});
+
+ 	//balance of the force
+ 	_.forIn(data.data.balance, function(points, code) {
+ 		var pointsData = /^(\d+)(\/(\d+))?$/.exec(points);
+ 		app.data.cards.updateById(code, {
+ 			points: points,
+ 			cp: parseInt(pointsData[1], 10)*100+parseInt(pointsData[3]||0, 10),
+ 			balance: format_code
+ 		});
+ 	});
+ }
+
+ /**
+ * @memberOf deck
+ * @returns object
+ */
+ deck.get_format_data = function get_format_data() {
+ 	return app.data.formats.findById(format_code);
+ }
 
 /**
  * @memberOf deck
@@ -160,12 +227,19 @@ deck.get_cards = function get_cards(sort, query) {
 }
 
 /**
+* @memberOf deck
+*/
+deck.is_included = function is_included(code) {
+	return deck.get_cards(null, {code: code}).length > 0;
+}
+
+/**
  * @memberOf deck
  */
 deck.get_draw_deck = function get_draw_deck(sort) {
 	return deck.get_cards(sort, {
 		type_code: {
-			'$in' : ['upgrade', 'support', 'event']
+			'$in' : ['upgrade', 'downgrade', 'support', 'event']
 		}
 	});
 }
@@ -327,6 +401,10 @@ deck.set_card_copies = function set_card_copies(card_code, nb_copies) {
 	// card-specific rules
 	switch(card.type_code) {
 		case 'battlefield':
+			if(deck.get_cards(null, {code: '07127'}).length > 0) {
+				//with 'Home Turf Advantage' plot
+				break;
+			}
 		case 'plot':
 			app.data.cards.update({
 				type_code: card.type_code
@@ -352,8 +430,8 @@ deck.set_card_copies = function set_card_copies(card_code, nb_copies) {
 	});
 	app.deck_history && app.deck_history.notify_change();
 
-	//list of cards which, by rules, deny or allow some cards
-	if(_.includes(['01045'], card_code))
+	//list of cards which, by rules, deny or allow some cards, or modify cards' max quantity
+	if(_.includes(['01045', '07089', '08090', '08135', '08143'], card_code))
 		updated_other_card = true; //force list refresh
 
 	return updated_other_card;
@@ -454,10 +532,25 @@ deck.get_problem = function get_problem() {
 		return 'no_battlefield';
 	}
 
+	if(deck.get_battlefields().length > (deck.is_included('07127') == 1 ? 2 : 1)) {
+		return 'too_many_battlefields';
+	}
+
+	if(!deck.check_plots()) {
+		return 'plot';
+	}
+
 	// too many copies of one card
-	if(_.findKey(deck.get_copies_and_deck_limit(), function(value) {
-	    return value.nb_copies > value.deck_limit;
-	}) != null) return 'too_many_copies';
+	var deckLimits = _(deck.get_copies_and_deck_limit())
+		.values()
+		.filter(v => v.nb_copies > v.deck_limit)
+		.map(v => v.nb_copies - v.deck_limit)
+		.value();
+	if(deckLimits.length > (deck.is_included('08143') ? 2 : 0)) return 'too_many_copies';
+	if(deck.is_included('08143') && _.some(deckLimits, v => v > 1)) return 'too_many_copies';
+
+	if(deck.is_included('08090') && deck.get_nb_cards(deck.get_cards(null, {affiliation_code: 'villain'})) > 5)
+		return 'too_many_copies';
 
 	// no invalid card
 	if(deck.get_invalid_cards().length > 0) {
@@ -468,8 +561,44 @@ deck.get_problem = function get_problem() {
 	if(deck.get_notmatching_cards().length > 0) {
 		return 'faction_not_included';
 	}
-	
+
 	return null;
+}
+
+var plotChecks = {
+	//Retribution (AtG 54)
+	'08054': function() {
+		return _.some(deck.get_character_deck(), function(card) {
+			var pointValue = card.is_unique ? parseInt(card.points.split('/')[card.indeck.dice-1], 10) : parseInt(card.points);
+			return pointValue >= 20;
+		});
+	},
+	//No Allegiance (AtG 155)
+	'08155': function() {
+		return _.every(deck.get_character_deck(), function(card) {
+			return !_.includes(['villain', 'hero'], card.affiliation_code);
+		});
+	},
+	//Solidarity (AtG 156)
+	'08156': function() {
+		var factions = _(deck.get_character_deck()).map('faction_code').uniq().value();
+		var cards = app.data.cards.find({
+			type_code: {$in: ['upgrade', 'event', 'support']},
+			indeck: {cards: {$gt: 1}}
+		});
+		return factions.length == 1 && cards.length == 0;
+	}
+};
+
+deck.check_plots = function check_plots() {
+	var plots = deck.get_plot_deck();
+	if(plots.length == 0) {
+		return true;
+	} else {
+		return _.every(plots, function(plot) {
+			return !!!plotChecks[plot.code] || plotChecks[plot.code]();
+		});
+	}
 }
 
 deck.get_invalid_cards = function get_invalid_cards() {
@@ -490,6 +619,9 @@ deck.get_notmatching_cards = function get_notmatching_cards() {
  * @memberOf deck
  */
 deck.can_include_card = function can_include_card(card) {
+	// card not valid in format
+	if(!deck.within_format_sets(card)) return false;
+
 	// neutral card => yes
 	if(card.affiliation_code === 'neutral') return true;
 
@@ -497,13 +629,50 @@ deck.can_include_card = function can_include_card(card) {
 	if(card.affiliation_code === affiliation_code) return true;
 
 	// Finn (AW #45) special case
-	if(deck.get_cards(null, {code: '01045'}).length > 0) {
+	if(deck.is_included('01045')) {
 		if(card.affiliation_code==='villain' && card.faction_code==='red' && _.includes(['vehicle','weapon'], card.subtype_code))
+			return true;
+	}
+
+	// Bo-Katan Kryze (WotF #89) special case
+	if(deck.is_included('07089')) {
+		if(card.affiliation_code==='villain' && card.faction_code==='yellow' && card.type_code==='upgrade')
+			return true;
+	}
+
+	// Leia Organa (AtG #90) special case
+	if(deck.is_included('08090')) {
+		if(card.affiliation_code==='villain')
+			return true;
+	}
+
+	// Qi'Ra (AtG #135) special case
+	if(deck.is_included('08135')) {
+		if(card.faction_code==='yellow' && card.type_code==='event')
 			return true;
 	}
 
 	// if none above => no
 	return false;
+}
+
+/**
+* returns true if the card set (or a set with a reprint of the card) is
+* included within valid set of formats
+* @memberOf deck
+*/
+deck.within_format_sets = function within_format_sets(card) {
+	var set_codes = [card.set_code];
+	if(_.has(card, 'reprints')) {
+		card.reprints.forEach(function(code) {
+			set_codes.push(app.data.cards.findById(code).set_code);
+		});
+	}
+	if(_.has(card, 'reprint_of')) {
+		set_codes.push(app.data.cards.findById(card.reprint_of).set_code);
+	}
+	set_codes = _.uniq(set_codes);
+	return _.intersection(set_codes, deck.get_format_data().data.sets).length > 0;
 }
 
 /**
